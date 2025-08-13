@@ -1,4 +1,5 @@
 <?php
+//connect to database
 $server = 'localhost';
 $username = 'root';
 $password = '';
@@ -15,6 +16,7 @@ if ($connection->connect_error) {
 }
 
 $mail = 'max@einkaufslist.com';
+//get einkaufslisten for given email
 $query = $connection->prepare('SELECT liste.LISTEBezeichnung, liste.idListe from liste join benutzer on benutzer.idBenutzer = liste.BENUTZER_idBenutzer where benutzer.BENUTZERMail = ?');
 $query->bind_param("s", $mail);
 $query->execute();
@@ -22,14 +24,17 @@ $lists = $query->get_result();
 $categories = array();
 $products = array();
 $allCategories = array();
+//get all categories
 $query = $connection->prepare('SELECT * FROM KATEGORIE');
 $query->execute();
 $allCategories = $query->get_result();
+//if list is explicitly set get all items on the list
 if (isset($_GET['list'])) {
     $query = $connection->prepare('SELECT produkt.PRODUKTBezeichnung, liste_produkt.LISTE_PRODUKTMenge, liste.LISTEBezeichnung, shop.SHOPBezeichnung, kategorie.KATEGORIEBezeichnung, kategorie.idKATEGORIE, liste_produkt.LISTE_PRODUKTGekauft from liste join benutzer on benutzer.idBENUTZER = liste.BENUTZER_idBENUTZER join liste_produkt on liste_produkt.LISTE_idLISTE = liste.idLISTE join shop on shop.idSHOP = liste_produkt.SHOP_idSHOP join produkt on produkt.idPRODUKT = liste_produkt.PRODUKT_idPRODUKT join kategorie on kategorie.idKATEGORIE = produkt.KATEGORIE_idKATEGORIE where liste.idLISTE = ?');
     $query->bind_param("i", $_GET['list']);
     $query->execute();
     $products = $query->get_result();
+    //get all categories contained in the list
     foreach ($products as $product) {
         $found = false;
         foreach($categories as $category) {
@@ -38,10 +43,12 @@ if (isset($_GET['list'])) {
             }
         }
         if (!$found) {
+            //link product to category
             array_push($categories, $product);
         }
     }
 }
+//if new product is added
 if (isset($_POST['addEntry'])) {
     $query = $connection->prepare('insert into produkt (PRODUKTBezeichnung, PRODUKTBeschreibung, KATEGORIE_idKATEGORIE, BENUTZER_idBENUTZER) values (?, ?, ?, 1)');
     $query->bind_param("sss", $_POST['productName'], $_POST['description'], $_POST["categories"]);
@@ -75,6 +82,7 @@ if (isset($_POST['addEntry'])) {
     <form action="main.php" , method="get" id="listForm">
         <select name="list" id="list" form="listForm">
             <?php
+            // echo the lists from the user if one is explicitly set it will be selected in the dropdown
             foreach ($lists as $list) {
                 if (isset($_GET['list']) &&  $list['idListe'] == (int)$_GET['list']) {
                     echo '<option value="' . $list['idListe'] . '" selected>' . $list["LISTEBezeichnung"] . '</option>';
@@ -92,6 +100,7 @@ if (isset($_POST['addEntry'])) {
         <th>MENGE</th>
         <th>SHOP</th>
         <?php
+        //loop over all categories and insert the products matching the category
         foreach ($categories as $category) {
             echo '<tr style=background-color:yellow>';
             echo '<td colspan="4">' . $category['KATEGORIEBezeichnung'] . '</td>';
@@ -99,6 +108,7 @@ if (isset($_POST['addEntry'])) {
             foreach ($products as $row_products) {
                 if ($row_products['idKATEGORIE'] == $category["idKATEGORIE"]) {
                     echo '<tr>';
+                    //set checkbox accordingly to state from db
                     if ($row_products['LISTE_PRODUKTGekauft'] ==  1) {
                         echo '<td><input type="checkbox" name="bought" value="2" checked></td>';
                     } else {
@@ -117,6 +127,7 @@ if (isset($_POST['addEntry'])) {
         <button type="submit" value="add" name="add">Produkt hinzufügen</button>
     </form>
     <?php
+    // if add button is called show form to enter new product
     if (isset($_POST['add'])) {
         echo '<br><form method="post">';
         echo '
